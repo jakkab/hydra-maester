@@ -57,7 +57,12 @@ var _ = Describe("OAuth2Client", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "default",
-				}}
+				},
+				Spec: OAuth2ClientSpec{
+					GrantTypes: []string{"type1"},
+					Scope:      "read,write",
+				},
+			}
 
 			By("creating an API obj")
 			Expect(k8sClient.Create(context.TODO(), created)).To(Succeed())
