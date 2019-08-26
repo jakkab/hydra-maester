@@ -122,12 +122,12 @@ func (in *OAuth2ClientSpec) DeepCopyInto(out *OAuth2ClientSpec) {
 	*out = *in
 	if in.GrantTypes != nil {
 		in, out := &in.GrantTypes, &out.GrantTypes
-		*out = make([]string, len(*in))
+		*out = make([]GrantType, len(*in))
 		copy(*out, *in)
 	}
 	if in.ResponseTypes != nil {
 		in, out := &in.ResponseTypes, &out.ResponseTypes
-		*out = make([]string, len(*in))
+		*out = make([]ResponseType, len(*in))
 		copy(*out, *in)
 	}
 }

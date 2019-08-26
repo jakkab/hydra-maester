@@ -59,7 +59,7 @@ var _ = Describe("OAuth2Client", func() {
 					Namespace: "default",
 				},
 				Spec: OAuth2ClientSpec{
-					GrantTypes: []string{"type1"},
+					GrantTypes: []GrantType{"implicit"},
 					Scope:      "read,write",
 				},
 			}

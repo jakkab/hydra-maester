@@ -21,24 +21,34 @@ import (
 
 // OAuth2ClientSpec defines the desired state of OAuth2Client
 type OAuth2ClientSpec struct {
-	// GrantTypes is an array of grant types the client is allowed to use.
+	// +kubebuilder:validation:MaxItems=4
+	// +kubebuilder:validation:MinItems=1
 	//
-	// Pattern: client_credentials|authorization_code|implicit|refresh_token
-	GrantTypes []string `json:"grantTypes"`
+	// GrantTypes is an array of grant types the client is allowed to use.
+	GrantTypes []GrantType `json:"grantTypes"`
 
+	// +kubebuilder:validation:MaxItems=3
+	// +kubebuilder:validation:MinItems=1
+	//
 	// ResponseTypes is an array of the OAuth 2.0 response type strings that the client can
 	// use at the authorization endpoint.
-	//
-	// Pattern: id_token|code|token
-	ResponseTypes []string `json:"responseType,omitempty"`
+	ResponseTypes []ResponseType `json:"responseTypes,omitempty"`
 
+	// +kubebuilder:validation:Pattern=([a-zA-Z0-9\.\*]+\s?)+
+	//
 	// Scope is a string containing a space-separated list of scope values (as
 	// described in Section 3.3 of OAuth 2.0 [RFC6749]) that the client
 	// can use when requesting access tokens.
-	//
-	// Pattern: ([a-zA-Z0-9\.\*]+\s?)+
 	Scope string `json:"scope"`
 }
+
+// +kubebuilder:validation:Enum=client_credentials;authorization_code;implicit;refresh_token
+// GrantType represents an OAuth 2.0 grant type
+type GrantType string
+
+// +kubebuilder:validation:Enum=id_token;code;token
+// ResponseType represents an OAuth 2.0 response type strings
+type ResponseType string
 
 // OAuth2ClientStatus defines the observed state of OAuth2Client
 type OAuth2ClientStatus struct {
@@ -77,8 +87,24 @@ func init() {
 func (c *OAuth2Client) ToOAuth2ClientJSON() *OAuth2ClientJSON {
 	return &OAuth2ClientJSON{
 		Name:          c.Name,
-		GrantTypes:    c.Spec.GrantTypes,
-		ResponseTypes: c.Spec.ResponseTypes,
+		GrantTypes:    grantToStringSlice(c.Spec.GrantTypes),
+		ResponseTypes: responseToStringSlice(c.Spec.ResponseTypes),
 		Scope:         c.Spec.Scope,
 	}
+}
+
+func responseToStringSlice(rt []ResponseType) []string {
+	var output = make([]string, len(rt))
+	for i, elem := range rt {
+		output[i] = string(elem)
+	}
+	return output
+}
+
+func grantToStringSlice(gt []GrantType) []string {
+	var output = make([]string, len(gt))
+	for i, elem := range gt {
+		output[i] = string(elem)
+	}
+	return output
 }
