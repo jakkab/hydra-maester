@@ -18,7 +18,7 @@ import (
 func TestNewRequest(t *testing.T) {
 
 	r := OAuth2ClientReconciler{
-		HydraURL: &url.URL{
+		HydraURL: url.URL{
 			Path:   "example.com",
 			Scheme: "http",
 		}}
@@ -49,7 +49,11 @@ func TestNewRequest(t *testing.T) {
 			//then
 			require.NoError(t, err)
 			assert.Equal(tc.method, req.Method)
-			assert.Equal(r.HydraURL.String(), req.URL.String())
+			if tc.relPath == "" {
+				assert.Equal(r.HydraURL.String(), req.URL.String())
+			} else {
+				assert.Equal(fmt.Sprintf("%s/%s", r.HydraURL.String(), tc.relPath), req.URL.String())
+			}
 
 			require.NotEmpty(t, req.Header.Get("Accept"))
 			assert.Equal("application/json", req.Header.Get("Accept"))
@@ -88,7 +92,7 @@ func TestCRUD(t *testing.T) {
 
 	r := OAuth2ClientReconciler{
 		HTTPClient: &http.Client{},
-		HydraURL:   &url.URL{Scheme: schemeHTTP},
+		HydraURL:   url.URL{Scheme: schemeHTTP},
 	}
 
 	t.Run("method=get", func(t *testing.T) {
@@ -120,7 +124,7 @@ func TestCRUD(t *testing.T) {
 				shouldFind := tc.statusCode == http.StatusOK
 
 				h := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-					assert.Equal(t, r.HydraURL.String(), fmt.Sprintf("%s://%s%s", schemeHTTP, req.Host, req.URL.Path))
+					assert.Equal(t, fmt.Sprintf("%s/%s", r.HydraURL.String(), testID), fmt.Sprintf("%s://%s%s", schemeHTTP, req.Host, req.URL.Path))
 					assert.Equal(t, http.MethodGet, req.Method)
 					w.WriteHeader(tc.statusCode)
 					w.Write([]byte(tc.respBody))
@@ -131,7 +135,7 @@ func TestCRUD(t *testing.T) {
 
 				s := httptest.NewServer(h)
 				serverUrl, _ := url.Parse(s.URL)
-				r.HydraURL = serverUrl.ResolveReference(&url.URL{Path: "/clients"})
+				r.HydraURL = *serverUrl.ResolveReference(&url.URL{Path: "/clients"})
 
 				//when
 				c, found, err := r.getOAuth2Client(testID)
@@ -195,7 +199,7 @@ func TestCRUD(t *testing.T) {
 
 				s := httptest.NewServer(h)
 				serverUrl, _ := url.Parse(s.URL)
-				r.HydraURL = serverUrl.ResolveReference(&url.URL{Path: "/clients"})
+				r.HydraURL = *serverUrl.ResolveReference(&url.URL{Path: "/clients"})
 
 				//when
 				c, err := r.postOAuth2Client(testOAuthJSON)

@@ -80,7 +80,7 @@ func main() {
 	err = (&controllers.OAuth2ClientReconciler{
 		Client:     mgr.GetClient(),
 		Log:        ctrl.Log.WithName("controllers").WithName("OAuth2Client"),
-		HydraURL:   u.ResolveReference(&url.URL{Path: endpoint}),
+		HydraURL:   *u.ResolveReference(&url.URL{Path: endpoint}),
 		HTTPClient: &http.Client{},
 	}).SetupWithManager(mgr)
 	if err != nil {

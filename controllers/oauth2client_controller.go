@@ -36,7 +36,7 @@ import (
 
 // OAuth2ClientReconciler reconciles a OAuth2Client object
 type OAuth2ClientReconciler struct {
-	HydraURL   *url.URL
+	HydraURL   url.URL
 	Log        logr.Logger
 	HTTPClient *http.Client
 	client.Client
@@ -168,9 +168,10 @@ func (r *OAuth2ClientReconciler) newRequest(method, relativePath string, body in
 		}
 	}
 
-	r.HydraURL.Path = path.Join(r.HydraURL.Path, relativePath)
+	u := r.HydraURL
+	u.Path = path.Join(u.Path, relativePath)
 
-	req, err := http.NewRequest(method, r.HydraURL.String(), buf)
+	req, err := http.NewRequest(method, u.String(), buf)
 	if err != nil {
 		return nil, err
 	}
