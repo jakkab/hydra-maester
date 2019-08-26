@@ -20,15 +20,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/go-logr/logr"
-	hydrav1alpha1 "github.com/ory/hydra-maester/api/v1alpha1"
 	"io"
-	apiv1 "k8s.io/api/core/v1"
-	apierrs "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"net/url"
 	"path"
+
+	"github.com/go-logr/logr"
+	hydrav1alpha1 "github.com/ory/hydra-maester/api/v1alpha1"
+	apiv1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -154,8 +155,6 @@ func (r *OAuth2ClientReconciler) postOAuth2Client(c *hydrav1alpha1.OAuth2ClientJ
 	default:
 		return nil, fmt.Errorf("%s %s http request returned unexpected status code: %s", req.Method, req.URL, resp.Status)
 	}
-
-	return jsonClient, nil
 }
 
 func (r *OAuth2ClientReconciler) newRequest(method, relativePath string, body interface{}) (*http.Request, error) {

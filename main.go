@@ -18,14 +18,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+
 	hydrav1alpha1 "github.com/ory/hydra-maester/api/v1alpha1"
 	"github.com/ory/hydra-maester/controllers"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"net/http"
-	"net/url"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports

@@ -10,6 +10,11 @@ all: manager
 test: generate fmt vet manifests
 	go test ./api/... ./controllers/... -coverprofile cover.out
 
+# Run integration tests on local KIND cluster
+# TODO: modify once integration tests have been implemented
+test-integration:
+	echo "no tests yet"
+
 # Build manager binary
 manager: generate fmt vet
 	go build -o bin/manager main.go

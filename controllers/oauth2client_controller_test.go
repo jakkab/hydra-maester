@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/ory/hydra-maester/api/v1alpha1"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/square/go-jose.v2/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+
+	"github.com/ory/hydra-maester/api/v1alpha1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/square/go-jose.v2/json"
 )
 
 func TestNewRequest(t *testing.T) {
@@ -71,7 +72,7 @@ func TestNewRequest(t *testing.T) {
 
 const (
 	testID            = "test-id"
-	schemeHTTP            = "http"
+	schemeHTTP        = "http"
 	testClient        = `{"client_id":"test-id","client_name":"test-name","scope":"some,scopes","grant_types":["type1"]}`
 	testClientCreated = `{"client_id":"test-id-2", "client_secret": "TmGkvcY7k526","client_name":"test-name-2","scope":"some,other,scopes","grant_types":["type2"]}`
 	emptyBody         = `{}`
