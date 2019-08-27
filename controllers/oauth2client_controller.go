@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"k8s.io/apimachinery/pkg/types"
 	"net/http"
 	"net/url"
 	"path"
@@ -32,6 +33,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	clientSecretKey = "client_secret"
+	clientIDKey     = "client_id"
 )
 
 // OAuth2ClientReconciler reconciles a OAuth2Client object
@@ -53,7 +59,10 @@ func (r *OAuth2ClientReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error
 	var client hydrav1alpha1.OAuth2Client
 	if err := r.Get(ctx, req.NamespacedName, &client); err != nil {
 		if apierrs.IsNotFound(err) {
-			//todo: delete client?
+			// delete Oauth2Client via secret
+			if err := r.unregisterOAuth2Client(ctx, req.NamespacedName); err != nil {
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -95,7 +104,8 @@ func (r *OAuth2ClientReconciler) registerOAuth2Client(ctx context.Context, clien
 			Namespace: client.Namespace,
 		},
 		Data: map[string][]byte{
-			"client_secret": []byte(*created.Secret),
+			clientSecretKey: []byte(*created.Secret),
+			clientIDKey:     []byte(*created.ClientID),
 		},
 	}
 
@@ -107,6 +117,19 @@ func (r *OAuth2ClientReconciler) registerOAuth2Client(ctx context.Context, clien
 	client.Status.Secret = &clientSecret.Name
 	client.Status.ClientID = created.ClientID
 	return r.Status().Update(ctx, client)
+}
+
+func (r *OAuth2ClientReconciler) unregisterOAuth2Client(ctx context.Context, namespacedName types.NamespacedName) error {
+	var sec apiv1.Secret
+	if err := r.Get(ctx, namespacedName, &sec); err != nil {
+		if apierrs.IsNotFound(err) {
+			r.Log.Info(fmt.Sprintf("unable to find secret corresponding with client %s/%s. Manual deletion recommended", namespacedName.Name, namespacedName.Namespace))
+			return nil
+		}
+		return err
+	}
+
+	return r.deleteOAuth2Client(string(sec.Data[clientIDKey]))
 }
 
 func (r *OAuth2ClientReconciler) getOAuth2Client(id string) (*hydrav1alpha1.OAuth2ClientJSON, bool, error) {
@@ -157,6 +180,29 @@ func (r *OAuth2ClientReconciler) postOAuth2Client(c *hydrav1alpha1.OAuth2ClientJ
 	}
 }
 
+func (r *OAuth2ClientReconciler) deleteOAuth2Client(id string) error {
+
+	req, err := r.newRequest(http.MethodDelete, id, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := r.do(req, nil)
+	if err != nil {
+		return err
+	}
+
+	switch resp.StatusCode {
+	case http.StatusNoContent:
+		return nil
+	case http.StatusNotFound:
+		r.Log.Info(fmt.Sprintf("client with id %s does not exist", id))
+		return nil
+	default:
+		return fmt.Errorf("%s %s http request returned unexpected status code %s", req.Method, req.URL.String(), resp.Status)
+	}
+}
+
 func (r *OAuth2ClientReconciler) newRequest(method, relativePath string, body interface{}) (*http.Request, error) {
 
 	var buf io.ReadWriter
@@ -192,5 +238,9 @@ func (r *OAuth2ClientReconciler) do(req *http.Request, v interface{}) (*http.Res
 	}
 
 	defer resp.Body.Close()
-	return resp, json.NewDecoder(resp.Body).Decode(v)
+	if v != nil {
+		err = json.NewDecoder(resp.Body).Decode(v)
+	}
+
+	return resp, err
 }

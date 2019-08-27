@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/square/go-jose.v2/json"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func TestNewRequest(t *testing.T) {
@@ -82,6 +83,12 @@ const (
 	emptyBody         = `{}`
 )
 
+type server struct {
+	statusCode int
+	respBody   string
+	err        error
+}
+
 var testOAuthJSON = &v1alpha1.OAuth2ClientJSON{
 	Name:       "test-name-2",
 	Scope:      "some,other,scopes",
@@ -90,18 +97,17 @@ var testOAuthJSON = &v1alpha1.OAuth2ClientJSON{
 
 func TestCRUD(t *testing.T) {
 
+	assert := assert.New(t)
+
 	r := OAuth2ClientReconciler{
 		HTTPClient: &http.Client{},
 		HydraURL:   url.URL{Scheme: schemeHTTP},
+		Log:        ctrl.Log.WithName("test").WithName("OAuth2Client"),
 	}
 
 	t.Run("method=get", func(t *testing.T) {
 
-		for d, tc := range map[string]struct {
-			statusCode int
-			respBody   string
-			err        error
-		}{
+		for d, tc := range map[string]server{
 			"getting registered client": {
 				http.StatusOK,
 				testClient,
@@ -124,8 +130,8 @@ func TestCRUD(t *testing.T) {
 				shouldFind := tc.statusCode == http.StatusOK
 
 				h := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-					assert.Equal(t, fmt.Sprintf("%s/%s", r.HydraURL.String(), testID), fmt.Sprintf("%s://%s%s", schemeHTTP, req.Host, req.URL.Path))
-					assert.Equal(t, http.MethodGet, req.Method)
+					assert.Equal(fmt.Sprintf("%s/%s", r.HydraURL.String(), testID), fmt.Sprintf("%s://%s%s", schemeHTTP, req.Host, req.URL.Path))
+					assert.Equal(http.MethodGet, req.Method)
 					w.WriteHeader(tc.statusCode)
 					w.Write([]byte(tc.respBody))
 					if shouldFind {
@@ -145,15 +151,15 @@ func TestCRUD(t *testing.T) {
 					require.NoError(t, err)
 				} else {
 					require.Error(t, err)
-					assert.Contains(t, err.Error(), tc.err.Error())
+					assert.Contains(err.Error(), tc.err.Error())
 				}
 
-				assert.Equal(t, shouldFind, found)
+				assert.Equal(shouldFind, found)
 				if shouldFind {
 					require.NotNil(t, c)
 					var expected v1alpha1.OAuth2ClientJSON
 					json.Unmarshal([]byte(testClient), &expected)
-					assert.Equal(t, &expected, c)
+					assert.Equal(&expected, c)
 				}
 			})
 		}
@@ -161,11 +167,7 @@ func TestCRUD(t *testing.T) {
 
 	t.Run("method=post", func(t *testing.T) {
 
-		for d, tc := range map[string]struct {
-			statusCode int
-			respBody   string
-			err        error
-		}{
+		for d, tc := range map[string]server{
 			"with new client": {
 				http.StatusCreated,
 				testClientCreated,
@@ -188,8 +190,8 @@ func TestCRUD(t *testing.T) {
 				new := tc.statusCode == http.StatusCreated
 
 				h := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-					assert.Equal(t, r.HydraURL.String(), fmt.Sprintf("%s://%s%s", schemeHTTP, req.Host, req.URL.Path))
-					assert.Equal(t, http.MethodPost, req.Method)
+					assert.Equal(r.HydraURL.String(), fmt.Sprintf("%s://%s%s", schemeHTTP, req.Host, req.URL.Path))
+					assert.Equal(http.MethodPost, req.Method)
 					w.WriteHeader(tc.statusCode)
 					w.Write([]byte(tc.respBody))
 					if new {
@@ -209,17 +211,58 @@ func TestCRUD(t *testing.T) {
 					require.NoError(t, err)
 				} else {
 					require.Error(t, err)
-					assert.Contains(t, err.Error(), tc.err.Error())
+					assert.Contains(err.Error(), tc.err.Error())
 				}
 
 				if new {
 					require.NotNil(t, c)
 
-					assert.Equal(t, testOAuthJSON.Name, c.Name)
-					assert.Equal(t, testOAuthJSON.Scope, c.Scope)
-					assert.Equal(t, testOAuthJSON.GrantTypes, c.GrantTypes)
-					assert.NotNil(t, c.Secret)
-					assert.NotNil(t, c.ClientID)
+					assert.Equal(testOAuthJSON.Name, c.Name)
+					assert.Equal(testOAuthJSON.Scope, c.Scope)
+					assert.Equal(testOAuthJSON.GrantTypes, c.GrantTypes)
+					assert.NotNil(c.Secret)
+					assert.NotNil(c.ClientID)
+				}
+			})
+		}
+	})
+
+	t.Run("method=delete", func(t *testing.T) {
+
+		for d, tc := range map[string]server{
+			"with registered client": {
+				statusCode: http.StatusNoContent,
+			},
+			"with unregistered client": {
+				statusCode: http.StatusNotFound,
+			},
+			"internal server error when requesting": {
+				statusCode: http.StatusInternalServerError,
+				err:        errors.New("http request returned unexpected status code"),
+			},
+		} {
+			t.Run(fmt.Sprintf("case/%s", d), func(t *testing.T) {
+
+				//given
+				h := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					assert.Equal(fmt.Sprintf("%s/%s", r.HydraURL.String(), testID), fmt.Sprintf("%s://%s%s", schemeHTTP, req.Host, req.URL.Path))
+					assert.Equal(http.MethodDelete, req.Method)
+					w.WriteHeader(tc.statusCode)
+				})
+
+				s := httptest.NewServer(h)
+				serverUrl, _ := url.Parse(s.URL)
+				r.HydraURL = *serverUrl.ResolveReference(&url.URL{Path: "/clients"})
+
+				//when
+				err := r.deleteOAuth2Client(testID)
+
+				//then
+				if tc.err == nil {
+					require.NoError(t, err)
+				} else {
+					require.Error(t, err)
+					assert.Contains(err.Error(), tc.err.Error())
 				}
 			})
 		}
